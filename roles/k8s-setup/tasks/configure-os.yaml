@@ -1,0 +1,120 @@
+- name: Upgrade all packages
+  yum:
+    name: '*'
+    state: latest
+
+- name: Set selinux to permissive
+  command: setenforce permissive
+
+- name: Disable selinux
+  lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: 'SELINUX=permissive'
+
+- name: Check if can grow partition
+  command: growpart -N /dev/vda 1
+  register: growpart_cmd
+  ignore_errors: true
+
+- name: Extend partition
+  command: "growpart /dev/vda 1"
+  when: "'NOCHANGE' not in growpart_cmd.stdout"
+
+- name: Extend partition
+  command: "xfs_growfs /"
+
+- name: Set hostname
+  hostname:
+    name: "{{ansible_hostname}}"
+
+- name: Enable the br_netfilter module
+  copy:
+    dest: /etc/modules-load.d/netfilter.conf
+    content: |
+      br_netfilter
+      overlay
+
+- name: Enable the br_netfilter module 
+  command: "modprobe br_netfilter"
+
+- name: Enable the overlay module 
+  command: "modprobe overlay"
+
+- name: Enable required sysctl params
+  copy:
+    dest: /etc/sysctl.d/01-k8s.conf
+    content: |
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.ipv4.ip_forward = 1
+      net.ipv4.ip_forward = 1
+
+- name: Enable required sysctl params
+  command: "sysctl -w {{ item }}=1"
+  loop: "{{ sysctl_params }}"
+  vars:
+    sysctl_params:
+      - net.bridge.bridge-nf-call-ip6tables
+      - net.bridge.bridge-nf-call-iptables
+      - net.ipv4.ip_forward
+      - net.ipv4.ip_forward
+
+
+- name: Enable CRIO repo 1
+  get_url:
+    url: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/CentOS_7/devel:kubic:libcontainers:stable.repo
+    dest: /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo
+    mode: '0440'
+
+- name: Enable CRIO repo 2
+  get_url:
+    url: "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:{{crio_version}}/CentOS_7/devel:kubic:libcontainers:stable:cri-o:{{crio_version}}.repo"
+    dest: "/etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:{{crio_version}}.repo"
+    mode: '0440'
+
+- name: Install CRI-O
+  yum:
+    name: cri-o
+    state: present
+
+- name: Remove CRI-O bridge configuration
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{crio_conf_files}}"
+  vars:
+    crio_conf_files:
+    - "/etc/cni/net.d/100-crio-bridge.conf"
+    - "/etc/cni/net.d/200-loopback.conf"
+
+- name: Start and enable CRI-O
+  systemd:
+    daemon-reload: yes
+    state: started
+    name: cri-o
+    enabled: yes
+
+- name: Enable Kubernetes repo
+  copy:
+    dest: /etc/yum.repos.d/k8s.repo
+    content: |
+      [kubernetes]
+      name=Kubernetes
+      baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+      enabled=1
+      gpgcheck=1
+      repo_gpgcheck=1
+      gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+      exclude=kubelet kubeadm kubectl
+
+- name: Install k8s packages
+  yum:
+     name: "{{ packages }}"
+     disable_excludes: kubernetes
+  vars:
+     packages:
+     - kubelet
+     - kubeadm
+     - kubectl
+

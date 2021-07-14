@@ -1,0 +1,54 @@
+- name: Check if kubelet.conf exist - no need to kubeadm the k8s-cluster
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_conf_file
+
+- name: Set kubeadm init command
+  set_fact: 
+    kubeadm_init_cmd: "kubeadm init {% if pod_network_cidr is defined  %} --pod-network-cidr \"{{pod_network_cidr}}\" {% endif %} --cri-socket /var/run/crio/crio.sock"
+
+- name: Run kubeadm
+  command: "{{ kubeadm_init_cmd }}"
+  when: not kubelet_conf_file.stat.exists
+
+- name: Start and enable kubectl
+  systemd:
+    daemon-reload: yes
+    state: started
+    name: kubelet
+    enabled: yes
+
+- name: Check if need to tain master node
+  shell: "kubectl taint nodes --all node-role.kubernetes.io/master- --dry-run=client"
+  register: kubect_taint_dryrun_cmd
+  environment:
+    KUBECONFIG: "{{kubeconfig_path}}"  
+  ignore_errors: true
+
+- name: Untaint master node
+  shell: "kubectl taint nodes --all node-role.kubernetes.io/master-"
+  environment:
+    KUBECONFIG: "{{kubeconfig_path}}"
+  when: kubect_taint_dryrun_cmd.rc == 0
+
+- name: Install flannel via manifests
+  include_role:
+    name: k8s-apply-manifests
+  loop_control:
+    loop_var: k8s_app_name
+  loop:
+    - flannel
+
+- name: Fetch kubeconfig
+  fetch:
+    src: "{{ kubeconfig_path }}"
+    dest: kubeconfig
+    flat: yes
+
+- name: Wait couple sec
+  pause:
+    seconds: '15'
+  when: not kubelet_conf_file.stat.exists
+
+
+    

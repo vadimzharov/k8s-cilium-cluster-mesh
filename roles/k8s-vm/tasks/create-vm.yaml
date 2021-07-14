@@ -1,0 +1,45 @@
+
+- name: Debug message
+  debug: 
+    msg: "Creating new VM for k8s lab"
+
+- name: "Download Centos image from {{ centos_image_url }} as {{ libvirt_vm_path }}/{{ k8s-lab }}.qcow2"
+  get_url:
+    url: "{{ centos_image_url }}"
+    dest: "{{ k8s_vm_path }}"
+  become: yes
+  delegate_to: localhost
+  run_once: yes
+
+- name: "Update disk size for vm {{ k8s_vm_name }}"
+  command: "qemu-img resize {{k8s_vm_path}} {{k8s_vm_disk_size}}"
+  become: yes
+  delegate_to: localhost
+  run_once: yes  
+
+- name: Set path to SSH key
+  set_fact: 
+    k8s_vm_user_ssh_key_path: "{{ lookup('env','HOME') }}/.ssh/id_rsa.pub"
+
+- name: Add SSH key to the VM
+  command: "virt-sysprep -a {{k8s_vm_path}} --ssh-inject root:file:{{ k8s_vm_user_ssh_key_path }} --selinux-relabel"
+  become: yes
+  delegate_to: localhost
+  run_once: yes
+
+- name: Create the VM
+  command:  | 
+    virt-install \
+    --memory {{ k8s_vm_memory }} \
+    --vcpus {{ k8s_vm_cpu }} \
+    --name {{ k8s_vm_name }} \
+    --disk {{k8s_vm_path}} \
+    --os-type Linux \
+    --os-variant centos7.0 \
+    --virt-type kvm \
+    --graphics none \
+    --network default \
+    --import
+  become: yes
+  delegate_to: localhost
+  run_once: yes    

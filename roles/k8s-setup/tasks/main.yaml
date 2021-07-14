@@ -1,0 +1,6 @@
+- name: Configure OS
+  import_tasks: configure-os.yaml
+
+- name: Initialize the cluster
+  import_tasks: k8s-init.yaml
+

@@ -1,0 +1,29 @@
+#CentOs image to download
+centos_image_url: https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-2009.qcow2
+
+#Path where to store VM images
+libvirt_vm_path: /var/lib/libvirt/images/
+
+# Name of the VM to create
+k8s_vm_name: "k8s-lab"
+k8s_vm_disk_size: "20G"
+
+# CRIO version
+crio_version: "1.20"
+
+# Kubernetes POD network for Flannel
+pod_network_cidr: 10.244.0.0/16
+
+# kubeconfig file on k8s VM
+#kubeconfig_path: "/etc/kubernetes/admin.conf"
+
+# Local manifests to apply after cluster installed:
+k8s_config_post_install_local_manifests:
+  - ingress-nginx
+
+# Remote manifests to apply after cluster installed:
+k8s_config_post_install_remote_manifests:
+  - namespace: k8s-lab-example-app
+    url: https://k8s.io/examples/application/deployment.yaml
+  - namespace: k8s-lab-example-app2
+    url: https://k8s.io/examples/application/deployment.yaml    

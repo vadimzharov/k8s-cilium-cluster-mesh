@@ -1,0 +1,41 @@
+
+- name: Delete VM if required
+  import_tasks: delete-vm.yaml
+  when: k8s_vm_reprovision | bool 
+
+- name: Check if VM exists
+  command: "virsh dominfo {{k8s_vm_name}}"
+  ignore_errors: true
+  register: virsh_dominfo
+  become: true
+  run_once: true
+  delegate_to: localhost
+
+- name: Create VM if it doesn't exist
+  import_tasks: create-vm.yaml
+  when: virsh_dominfo.rc == 1
+
+- name: Start VM
+  command: "virsh start {{ k8s_vm_name }}"
+  become: true
+  run_once: true  
+  delegate_to: localhost
+  when: 'virsh_dominfo.stdout is defined and "shut off" in virsh_dominfo.stdout'
+
+- name: Add VM to inventory
+  import_tasks: add-vm-inventory.yaml
+
+# - name: Stop VM
+#   shell: virsh destroy k8s
+#   delegate_to: localhost
+#   ignore_errors: true
+
+
+# - name: Revert VM from snapshot
+#   shell: "virsh snapshot-revert {{vm_name}} {{snapshot_name}}"
+#   delegate_to: localhost
+
+# - name: Start VM
+#   shell: virsh start k8s
+#   delegate_to: localhost
+

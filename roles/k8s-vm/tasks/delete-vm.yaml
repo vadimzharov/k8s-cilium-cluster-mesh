@@ -1,0 +1,26 @@
+
+- name: Debug message
+  debug: 
+    msg: "Destroying VM {{ k8s_vm_name }}"
+
+- name: "Stop and delete VM {{ k8s_vm_name }}"
+  command: "virsh destroy {{k8s_vm_name}} "
+  become: yes
+  delegate_to: localhost
+  run_once: yes
+  ignore_errors: yes
+
+- name: "Stop and delete VM {{ k8s_vm_name }}"
+  command: "virsh undefine {{k8s_vm_name}}"
+  become: yes
+  delegate_to: localhost
+  run_once: yes
+  ignore_errors: yes
+
+- name: "Delete qcow2 file"
+  file: 
+    path: "{{ k8s_vm_path }}"
+    state: absent
+  become: yes
+  delegate_to: localhost
+  run_once: yes

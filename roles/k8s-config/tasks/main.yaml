@@ -1,0 +1,19 @@
+- name: Add host to inventory if it was not added
+  import_role:
+    name: k8s-vm
+    tasks_from: add-vm-inventory.yaml
+  when: ansible_default_ipv4 is undefined
+
+- name: Install additional apps via local manifests manifests
+  include_role:
+    name: k8s-apply-manifests
+  loop_control:
+    loop_var: k8s_app_name
+  loop: "{{ k8s_config_post_install_local_manifests }}"
+
+- name: Install components defined in k8s_config_post_install_remote_manifests variable.
+  shell: "kubectl create namespace {{item.namespace}} --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -n {{ item.namespace}} -f {{ item.url}} "
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  loop: "{{ k8s_config_post_install_remote_manifests }}"
+  
