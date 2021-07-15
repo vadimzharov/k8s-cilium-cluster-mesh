@@ -1,0 +1,18 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: tekton-dashboard
+  namespace: tekton-pipelines
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+  - host: "{{ansible_hostname}}"
+    http:
+      paths:
+      - path: /tekton(/|$)(.*)
+        pathType: Prefix
+        backend:
+          serviceName: tekton-dashboard
+          servicePort: 9097
