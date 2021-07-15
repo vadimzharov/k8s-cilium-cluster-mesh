@@ -7,8 +7,8 @@ Also, record for `k8s-lab.mypc.loc` hostname is creatd in `/etc/hosts` file on l
 
 After cluster is initialized `k8s-config` role applies:
 * Local manifests from `files/manifests` subdirectories based on `k8s_config_post_install_local_manifests` variable in `group_vars/all/all.yaml`. It has:
-    ** Manifests to install nginx ingress controller. After nginx deployed, ingresses are available via ports 80 and 443 on `k8s-lab.mypc.loc` hostname.
-    ** Manifests to install Tekton. After Tekton deployed, UI is available on `http://k8s-lab.mypc.loc/tekton` URL.
+    * Manifests to install nginx ingress controller. After nginx deployed, ingresses are available via ports 80 and 443 on `k8s-lab.mypc.loc` hostname.
+    * Manifests to install Tekton. After Tekton deployed, UI is available on `http://k8s-lab.mypc.loc/tekton` URL.
 * Remote manifests (from remote HTTP servers) based on `k8s_config_post_install_remote_manifests` variable in `group_vars/all/all.yaml`.
   Now it has only one manifest to deploy k8s demo app (https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/).
 
