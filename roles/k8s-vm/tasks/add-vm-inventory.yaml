@@ -31,21 +31,22 @@
   set_fact:
     k8s_vm_ip: '{{ virsh_ifaddr | replace(" ","") }}'
 
-- name: Add host to /etc/hosts on localhost
-  lineinfile:
-    path: /etc/hosts
-    regexp: '/{{ ansible_hostname }}/'
-    line: '{{ k8s_vm_ip }} {{ ansible_hostname }}'
-  become: true
-  run_once: true  
-  delegate_to: localhost    
-
 - name: Add host to group 'k8s'
   add_host:
     name: '{{ k8s_vm_name }}'
     ansible_ssh_host: '{{ k8s_vm_ip }}'
     ansible_default_ipv4: '{{ k8s_vm_ip }}'
     groups: k8s-cluster
+
+- name: Add host to /etc/hosts on localhost
+  lineinfile:
+    path: /etc/hosts
+    regexp: '/{{ ansible_hostname }}/'
+    line: '{{ k8s_vm_ip }} {{ ansible_hostname }}'
+  become: true
+  run_once: true
+  delegate_to: localhost    
+
 
 - name: "Check SSH known_hosts"
   local_action: "shell ssh-keygen -F {{ k8s_vm_ip }}"

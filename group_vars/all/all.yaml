@@ -17,7 +17,7 @@ pod_network_cidr: 10.244.0.0/16
 # kubeconfig file on k8s VM
 #kubeconfig_path: "/etc/kubernetes/admin.conf"
 
-# Local manifests to apply after cluster installed:
+# Local manifests to apply after cluster installed (files/manifests/<dir_name>):
 k8s_config_post_install_local_manifests:
   - ingress-nginx
 
@@ -25,5 +25,3 @@ k8s_config_post_install_local_manifests:
 k8s_config_post_install_remote_manifests:
   - namespace: k8s-lab-example-app
     url: https://k8s.io/examples/application/deployment.yaml
-  - namespace: k8s-lab-example-app2
-    url: https://k8s.io/examples/application/deployment.yaml    
