@@ -1,6 +1,7 @@
 - name: Ensure tmp directory exist
   file:
     path: "{{playbook_dir}}/files/tmp"
+  delegate_to: localhost    
 
 - name: Set cilium_ca and cilium_ca_key variables content
   set_fact:

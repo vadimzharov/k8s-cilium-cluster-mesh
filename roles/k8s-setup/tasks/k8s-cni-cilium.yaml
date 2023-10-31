@@ -1,3 +1,9 @@
+- name: Ensure tmp directory exist
+  file:
+    path: "{{playbook_dir}}/files/tmp"
+    state: directory
+  delegate_to: localhost     
+
 - name: Check if private key exists
   stat:
     path: files/tmp/cilium-ca-certificate.key

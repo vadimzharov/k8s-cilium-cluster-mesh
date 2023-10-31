@@ -4,6 +4,7 @@
 - name: Ensure tmp directory exist
   file:
     path: "{{playbook_dir}}/files/tmp"
+    state: directory
 
 - name: Initialize the cluster
   import_tasks: k8s-init.yaml

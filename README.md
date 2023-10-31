@@ -1,10 +1,10 @@
 ## Testing Cilium Cluster Mesh installation/configuration using Helm Charts (GitOps approach) - part 1.
 
-Cilium Cluster Mesh allows administrators to connect Kubernetes clusters into one mesh network - where all pod networks are interconnected and pods from one cluster can reach pods or K8S services in any other cluster using IP addresses or DNS name. This can be useful in different scenarios - for example if an application is running in one K8S cluster but database required for the application to work running in another K8S cluster. Or if application is running on multiple K8S clusters and administrators want to balance traffic from (one or many) K8S ingress to all available application pods across all these K8S clusters.
+[Cilium Cluster Mesh](https://cilium.io/use-cases/cluster-mesh/) allows administrators to connect multiple Kubernetes clusters into one mesh network - where all pod networks are interconnected and pods from one cluster can reach pods or K8S services in any other cluster using IP addresses or DNS name. This can be useful in various scenarios - for example if an application is running in one K8S cluster but database required for the application to work running in another K8S cluster. Or if application is running on multiple K8S clusters and administrators want to balance traffic from (one or many) K8S ingresses to all available application pods across all these K8S clusters.
 
-I use Cilium CNI in my Homelab k8s clusters for a long time, and recently implemented Cilium Cluster Mesh to be able to distribute applications between my clusters and move them from one to another (almost) without service interruption if I need to re-install, maintenance or upgrade one of my K8S clusters.
+I use Cilium CNI in my homelab k8s clusters for a long time, and recently implemented Cilium Cluster Mesh to be able to distribute applications between my clusters and move them from one to another (almost) without service interruption if I need to re-install, maintenance or upgrade one of my K8S clusters.
 
-To manage my K8S clusters I use GitOps approach by using ArgoCD and deploy/configure everything using ArgoCD ApplicationSets/Applications, where I define git repository with K8S manifests or helm charts with values requried to deploy an application - and this approach I want to use to deploy and configure Cilium/Cilium Mesh.
+To manage my K8S clusters I use GitOps approach by utilizing ArgoCD and deploy/configure everything using ArgoCD ApplicationSets/Applications, where I define git repository with K8S manifests or helm charts with values requried to deploy an application - and this approach I want to use to deploy and configure Cilium CNI/Cilium Mesh.
 
 Not so far ago, to configure Cilium Cluster Mesh administrators were required to do some manual steps (using bash scripts) to create/copy certificates needed for Cluster Mesh to connect - from each of running K8S clusters. But starting from Cilium version 1.14.0, Cilium Helm chart provides possibility for administrators to configure Cluster Mesh in the GitOps way - just by installing Cilium Helm chart with proper values, and Cluster Mesh starts working immidiately.
 
@@ -15,16 +15,16 @@ In this article I want to describe steps how to deploy and configure K8S cluster
 Detailed description can be found in the [official documentation.](https://docs.cilium.io/en/stable/network/clustermesh/clustermesh/#prerequisites)
 
 Noticiable requirements are:
-* POD and SERVICES CIDR ranges must be unique for all clusters (since pods should be able to communicate with each other by IP)
-* Nodes CIDR must be unique and nodes must have IP connectivity between each other (In my environment I use direct connection, but per documentation - VPN is also possible)
+* POD and SERVICES CIDR ranges must be **unique** for **all** Kubernetes clusters (since pods should be able to communicate with each other by IP)
+* Nodes CIDR must be unique and nodes **must** have IP connectivity between each other (In my environment I use direct connection, but per documentation - VPN is also possible)
 * Cilium pods must connect to Clustermesh API service exposed on each of interconnected clusters. This service can be exposed as NodePort (not recommentded for production, but I'm using it in my environment) or K8S ingress.
-* **To configure Cilium Cluster Mesh using Helm chart without any additional manual steps - Cilium CNI on all K8S clusters must be configured by using the same CA.** In this case clusters trust each other and you don't need to pull/create certificates from all clusters on each cluster. This is what you need to set in Helm Chart values file to enable Cilium Cluster Mesh.
+* **To configure Cilium Cluster Mesh using Helm chart without any additional manual steps - Cilium CNI on all K8S clusters must be configured by using the same CA.** In this case clusters trust each other and you don't need to pull/create certificates from all clusters on each cluster manually. This is what you need to set in Helm Chart values file to enable Cilium Cluster Mesh.
 
-### Brief description of steps
+### Brief description of the steps
 
 To test this feature, I do the following steps:
 * Create at least two K8S clusters on my KVM environment (automated via Ansible), without configuring any CNI - this step is not nessesary if you already have K8S clusters.
-* Configure Cilium CNI using Helm on each cluster without Cluster Mesh to ensure everything is working (using Helm Chart and values files) - this step is not nessesary if you already have K8S clusters with Cilium CNI configured - but ensure you meen pre-prequisites.
+* Configure Cilium CNI using Helm on each cluster without Cluster Mesh to ensure everything is working (using Helm Chart and values files) - this step is not nessesary if you already have K8S clusters with Cilium CNI configured - but ensure you meet the pre-prequisites.
 * Update Cilium CNI configuration using Helm chart with the same values file but with Cluster Mesh configuration added
 * Make validation by check if pods from different clusters can connect to each other.
 * Deploy ingress controller, create k8s ingresses and balance ingress traffic across K8S clusters.
@@ -39,7 +39,7 @@ The playbook works only for KVM, and was tested only on Fedora 38.
 
 The playbook downloads official Ubuntu Jammy 22.04 KVM image, creates VM based on this image and then install/configure K8S cluster using kubeadm. Since we need two K8S clusters, this playbook needs to be executed twice.
 
-Before executing the playbook, check [group_vars/all/all.yaml](group_vars/all/all.yaml) file and check inventory files for both K8S clusters [](inventory/k8s-01.yaml) and [](inventory/k8s-02.yaml) - notice they have different POD and service CIDRs, and also different NodePort values (now there is a bug in Cilium and Clustermesh API cannot be exposed on the same port on different interconnected K8S clusters).
+Before executing the playbook, check [group_vars/all/all.yaml](group_vars/all/all.yaml) file and check inventory files for both K8S clusters [inventory/k8s-01.yaml](inventory/k8s-01.yaml) and [inventory/k8s-02.yaml](inventory/k8s-02.yaml) - notice they have different POD and service CIDRs, and also different NodePort values (now there is a bug in Cilium and Clustermesh API cannot be exposed on the same port on different interconnected K8S clusters).
 
 To install/configure first K8S cluster, execute:
 ```
@@ -67,7 +67,7 @@ Create the second K8S cluster:
 ansible-playbook 01-install-k8s.yaml -i inventory/k8s-02.yaml
 ```
 
-#### Installing Cilium CNI
+#### Installing Cilium CNI using Helm
 
 Next step is to install Cilium CNI but without Cluster Mesh configuration - to see on the next step what changes after you enable Cluster Mesh. The crucial part of this step is to use the same CA certificate for Cilium on both clusters.
 Another ansible playbook can generate CA, create values file and install Cilium.
@@ -84,7 +84,7 @@ and
 ansible-playbook 02-generate-cilium-config.yaml -i inventory/k8s-02.yaml
 ```
 
-The output values files along with generated CA are available in [](files/tmp/) directory. The content of the files is common for any Cilium CNI configuration, but all files sharing the same CA.
+The output values files along with generated CA are available in [](files/tmp/) directory. The content of the files is common for any Cilium CNI configuration, but all clusters are sharing the same CA.
 
 You can install Cilium CNI on your K8S clusters with these files by executing: 
 ```
@@ -139,7 +139,7 @@ kube-system   kube-scheduler-k8s-lab-02.mypc.loc            1/1     Running   0 
 
 Now I have two K8S clusters with Cilium CNI configured, these clusters have unique POD and Service CIDRs, and nodes can reach each other by IP. Also, the playbook created two records in `/etc/hosts` file on my local machine, so both nodes are available as `k8s-lab-01.mypc.loc` and `k8s-lab-02.mypc.loc` - I can expose ClusterMesh API on these nodes and use these hostnames in Cluster Mesh API server configuration.
 
-#### Configuring Cilium CNI Cluster Mesh
+#### Configuring Cilium CNI Cluster Mesh using Helm
 
 Next step is to update existing Cilium CNI configuration with values file containing Cluster Mesh configuration.
 
@@ -152,7 +152,7 @@ and for the second:
 ```
 ansible-playbook 04-generate-cilium-mesh-config.yaml -i inventory/k8s-02.yaml
 ```
-The output values files are in [](files/tmp/) directory, named as `cilium-values-k8s01-mesh.yaml` and `cilium-values-k8s02-mesh.yaml`, and contain updated Cilium CNI configuration with Cluster Mesh enabled, here is this part with some comments:
+The output values files are in [files/tmp](files/tmp/) directory, named as `cilium-values-k8s01-mesh.yaml` and `cilium-values-k8s02-mesh.yaml`, and contain updated Cilium CNI configuration with Cluster Mesh enabled, here is this part with some comments:
 ```
 cluster:
   id: 01                               # <= this is cluster ID and must be unique for each cluster
@@ -272,7 +272,7 @@ ClusterMesh:             1/1 clusters ready, 0 global-services
 ............
 ```
 
-Also, now any agent can see all other nodes from all other clusters:
+Also, now any agent can see all other nodes from all other clusters, execute `cilium node list`:
 ```
 [vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl -n kube-system exec -c cilium-agent cilium-g2dxd -- cilium node list
 Name                            IPv4 Address      Endpoint CIDR   IPv6 Address   Endpoint CIDR
@@ -288,7 +288,7 @@ In the previous steps I deployed two K8S cluster interconnected by using Cilium 
 
 After Cilium Cluster Mesh is working, we can deploy pods and check if they can reach each other. To do this I use nginx example pod deployed in `cluster-mesh-test` namespace.
 
-Create namespace and deploy pod in both clusters:
+Create namespace and deploy pod in both clusters using manfiests in [files/manifests/pod](files/manifests/pod/) directory:
 ```
 [vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl apply -f files/manifests/pod/
 namespace/cluster-mesh-test created
@@ -310,7 +310,7 @@ static-web   1/1     Running   0          57s   10.245.0.143   k8s-lab-02.mylapt
 
 Try to curl from one pod to another, first cluster:
 ```
-[vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl -n cluster-mesh-test exec static-web -- curl -I http://10.245.0.143:80
+[vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl -n cluster-mesh-test exec static-web -- curl -s -I http://10.245.0.143:80
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
   0   615    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
@@ -327,7 +327,7 @@ Accept-Ranges: bytes
 
 and second cluster:
 ```
-[vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s02 kubectl -n cluster-mesh-test exec static-web -- curl -I http://10.244.0.175:80
+[vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s02 kubectl -n cluster-mesh-test exec static-web -- curl -s -I http://10.244.0.175:80
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
   0   615    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
@@ -346,11 +346,11 @@ Pods from one cluster can reach pod in another cluster by using it's endpoint IP
 
 #### Testing Cilium Cluster Mesh - using shared services.
 
-To balance traffic across K8S clusters achieving by using Kubernetes services with the same name and the same namespace and by using annotation `service.cilium.io/global: "true"`.
+Traffic balancing across all interconnected K8S clusters is achieving by using Kubernetes services with the same name in the same namespace and by using annotation `service.cilium.io/global: "true"` applied to the service.
 
-To test this, create separate namespace `shared-service` with sample nginx deployment and service with annotation mentioned above. All manifesets are in [](files/tmp/manifests/shared-svc) directory.
+To test this, create separate namespace `shared-service` with sample nginx deployment and service with annotation mentioned above. All manifesets are in [files/manifests/shared-svc](files/manifests/shared-svc) directory.
 
-Create namespace, deployment and service in both clusters:
+Create namespace, deployment and service in both clusters by using manifests in [files/manifests/shared-svc](files/manifests/shared-svc/) directory:
 ```
 [vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl apply -f files/manifests/shared-svc/
 namespace/shared-service created
@@ -411,15 +411,15 @@ nginx-deployment-86dcfdf4c6-pcrsd   1/1     Running   0          4s
 
 Now let's test more advanced scenario - ingress controller balancing ingress traffic across all available pods across all K8S clusters interconnected with Cilium Service Mesh.
 
-Before configuring ingress with shared services, it is important to understand that by default all (as far as I know) Kubernetes ingress controllers use list of endpoints to balance traffic from ingress to pods in Kubernetes cluster - means **traffic goes directly from Ingress pods to Application pods ignoring Kubernetes service IP/hostname** - to increase performance and remove potential bottlenecks. This is not possible if we use shared services - because if deployment on local Kubernetes cluster scaled down - service - even if it configured as shared - has no pods on local Kubernetes cluster - and has no endpoints. Hence Ingress controller doesn't know where to send traffic (for Ingress it looks like application doesn't have any pods running) and application is not available. To configure ingress traffic balancing across Kubernetes clusters interconnected into Cilium Cluster Mesh, we need to define for ingress to balance traffic based on **service IP**, not based on **endpoints IP**. Not all ingress controllers support that, and I migrated from Traefik to Nginx because of this - Traefik can work only with endpoints, but Nginx ingress controller has special [annotation](https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md#service-upstream) for Ingress Kubernetes object `nginx.ingress.kubernetes.io/service-upstream`. If this annotation specified for Ingress object - then Ingress controller will balance traffic based on service IP, not based on endpoint IP - and will balance traffic across multiple Kubernetes clusters.
+Before configuring ingress with shared services, it is important to understand that by default all (as far as I know) Kubernetes ingress controllers use list of endpoints to balance traffic from ingress to pods in Kubernetes cluster - means **traffic goes directly from Ingress pods to Application pods ignoring Kubernetes service IP/hostname** - to increase performance and remove potential bottlenecks. This is not possible if we use shared services - because if deployment on local Kubernetes cluster scaled down - then the service - even if it configured as shared - has no pods on local Kubernetes cluster - and has no endpoints. Hence Ingress controller doesn't know where to send traffic (for Ingress it looks like application doesn't have any pods running) and application is not available via Kubernetes ingress. To configure ingress traffic balancing across Kubernetes clusters interconnected into Cilium Cluster Mesh, we need to define for ingress to balance traffic based on **service IP**, not based on **endpoints IP**. Not all ingress controllers support that, and I migrated from Traefik to Nginx because of this - Traefik can work only with endpoints, but Nginx ingress controller has special [annotation](https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md#service-upstream) for Ingress Kubernetes object `nginx.ingress.kubernetes.io/service-upstream`. If this annotation specified for Ingress object - then Ingress controller will balance traffic based on service IP, not based on endpoint IP - and will balance traffic across multiple Kubernetes clusters.
 
 To test this we can use the same service created on the previous step, but exposed via Nginx ingress controller.
 
-At first, deploy nginx controller on the first Kubernetes cluster:
+At first, deploy nginx controller on the first Kubernetes cluster using default manifests:
 ```
 KUBECONFIG=kubeconfig-k8s01 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
 ```
-and expose it using port 80 on K8S nodes (don't do this in production):
+and expose it using port 80 on K8S nodes (don't do this in production), by applying patch available in [files/manifests/ingress-nginx](files/manifests/ingress-nginx/) directory:
 ```
 KUBECONFIG=kubeconfig-k8s01 kubectl -n ingress-nginx patch deployment ingress-nginx-controller --patch-file files/manifests/ingress-nginx/nginx.yaml
 ```
@@ -436,7 +436,7 @@ Now nginx controller is available and responding on port 80:
 </html>
 ```
 
-To expose existing service `shared-service` from namespace `shared-service` create ingress Kubernetes resource without providing any additional annotations:
+To expose existing service `shared-service` from namespace `shared-service` create ingress Kubernetes resource without providing any additional annotations by applying manfiest from [files/manifests/shared-ingress](files/manifests/shared-ingress/) directory:
 
 ```
 [vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl apply -f files/manifests/shared-ingress/
@@ -450,7 +450,7 @@ NAME      CLASS   HOSTS                  ADDRESS   PORTS   AGE
 ingress   nginx   ingress.mylaptop.loc             80      19s
 ```
 
-and available - since there are pods running on both clusters, including first cluster, ingress should work:
+and available - since there are pods running on both clusters, including the first cluster, ingress should work:
 
 Get node's IP:
 ```
@@ -465,7 +465,7 @@ Run curl command if nginx application is working (should get code 200):
 HTTP/1.1 200 OK
 ```
 
-Now this igress does not have annotation `nginx.ingress.kubernetes.io/service-upstream=true`, and traffic is balancing from Ingress Controller using enpoint IP (on local, first K8S cluster). This can be validated in nginx controller pod:
+This igress does not have annotation `nginx.ingress.kubernetes.io/service-upstream=true`, and traffic is balancing from Ingress Controller using enpoint IP (on local, first K8S cluster). This can be validated in nginx controller pod:
 ```
 [vadim@fedora k8s-kvm-lab]$ NGINX_POD=$(KUBECONFIG=kubeconfig-k8s01 kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].metadata.name}')
 [vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl -n ingress-nginx logs $NGINX_POD --tail=3
@@ -500,7 +500,7 @@ W1031 18:55:33.539328       7 controller.go:1207] Service "shared-service/shared
 192.168.125.1 - - [31/Oct/2023:18:55:47 +0000] "HEAD / HTTP/1.1" 503 0 "-" "curl/8.0.1" 84 0.000 [shared-service-shared-service-80] [] - - - - 744af87a0efb2268445099ab57b91573
 ```
 
-Now let's scale back the deployment and annotate the Ingress:
+Now let's scale back the deployment and annotate the Ingress with `kubectl -n shared-service annotate ingress ingress nginx.ingress.kubernetes.io/service-upstream=true` command:
 ```
 [vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl -n shared-service scale deployment/nginx-deployment --replicas=1
 deployment.apps/nginx-deployment scaled
@@ -534,4 +534,6 @@ No resources found in shared-service namespace.
 HTTP/1.1 200 OK
 ```
 
+### Conclusion
 
+Cilium Cluster Mesh allows you to route your pod-to-pod and service-to-service traffic between multiple Kubernetes clusters (if your clusters and infrastructure meet requirements). The way how it is working and configuring is pretty easy and straightforward - because basically it is L3 routing between POD/SERVICEs CIDRs, and in some cases can be great option if you want to share some resources across some/all your Kubernetes clusters.
