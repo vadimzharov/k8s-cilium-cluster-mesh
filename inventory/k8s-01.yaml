@@ -1,0 +1,18 @@
+k8s-cluster:
+  hosts:
+    k8s-lab-01:
+      ansible_hostname: k8s-lab-01.mylaptop.loc
+      k8s_hostname: k8s-lab-01.mylaptop.loc
+      ansible_ssh_user: root
+      ansible_become: yes
+      cluster_name: "k8s01"
+      k8s_vm_name: "k8s-lab-01"
+      # Kubernetes POD network for Cilium
+      pod_network_cidr: 10.244.0.0/16
+      # Kubernetes SERVICE network for Cilium
+      service_network_cidr: 10.96.0.0/18
+      cilium_mesh_cluster_id: "01"
+      cilium_apiserver_port: 32379
+      cilium_peer_apiserver_port: 32380
+      cilium_peer_cluster_name: k8s02 
+      cilium_peer_cluster_address: k8s-lab-02.mylaptop.loc

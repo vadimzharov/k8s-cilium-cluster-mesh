@@ -3,22 +3,55 @@
     path: /etc/kubernetes/kubelet.conf
   register: kubelet_conf_file
 
-- name: Set kubeadm init command
-  set_fact: 
-    kubeadm_init_cmd: "kubeadm init {% if pod_network_cidr is defined  %} --pod-network-cidr \"{{pod_network_cidr}}\" {% endif %} --cri-socket /var/run/crio/crio.sock"
+- name: Run kubeadm init
+  block: 
 
-- name: Run kubeadm
-  command: "{{ kubeadm_init_cmd }}"
+  - name: Process kubeadm config
+    template:
+      src: kubeadm-config.yaml.j2
+      dest: /tmp/kubeadm-config.yaml
+
+  - name: Set kubeadm init command
+    set_fact: 
+      kubeadm_init_cmd: "kubeadm init --config /tmp/kubeadm-config.yaml --skip-phases=addon/kube-proxy"
+    when: not use_kube_proxy
+
+  - name: Set kubeadm init command
+    set_fact: 
+      kubeadm_init_cmd: "kubeadm init --config /tmp/kubeadm-config.yaml"
+    when: use_kube_proxy    
+
+  - name: Run kubeadm
+    command: "{{ kubeadm_init_cmd }}"
+
+  - name: Start and enable kubectl
+    systemd:
+      daemon-reload: yes
+      state: started
+      name: kubelet
+      enabled: yes
+
+  - name: Wait for CSR to appear
+    shell: kubectl get csr
+    environment:
+      KUBECONFIG: "{{kubeconfig_path}}"
+    register: kubectl_csr_cmd
+    until: kubectl_csr_cmd.stdout != ""
+    retries: 60
+    delay: 3
+
+  - name: Pause for 1 min
+    pause:
+      seconds: 60
+
+  - name: Approve CSR
+    shell: kubectl get csr -o name | xargs kubectl certificate approve
+    environment:
+      KUBECONFIG: "{{kubeconfig_path}}"
+
   when: not kubelet_conf_file.stat.exists
 
-- name: Start and enable kubectl
-  systemd:
-    daemon-reload: yes
-    state: started
-    name: kubelet
-    enabled: yes
-
-- name: Check if need to tain master node
+- name: Check if need to taint master node
   shell: "kubectl taint nodes --all node-role.kubernetes.io/master- --dry-run=client"
   register: kubect_taint_dryrun_cmd
   environment:
@@ -31,24 +64,23 @@
     KUBECONFIG: "{{kubeconfig_path}}"
   when: kubect_taint_dryrun_cmd.rc == 0
 
-- name: Install flannel via manifests
-  include_role:
-    name: k8s-apply-manifests
-  loop_control:
-    loop_var: k8s_app_name
-  loop:
-    - flannel
+- name: Check if need to taint master node
+  shell: "kubectl taint nodes --all node-role.kubernetes.io/control-plane- --dry-run=client"
+  register: kubect_taint_dryrun_cmd
+  environment:
+    KUBECONFIG: "{{kubeconfig_path}}"  
+  ignore_errors: true
+
+- name: Untaint master node
+  shell: "kubectl taint nodes --all node-role.kubernetes.io/control-plane-"
+  environment:
+    KUBECONFIG: "{{kubeconfig_path}}"
+  when: kubect_taint_dryrun_cmd.rc == 0
 
 - name: Fetch kubeconfig
   fetch:
     src: "{{ kubeconfig_path }}"
-    dest: kubeconfig
+    dest: "kubeconfig-{{cluster_name}}"
     flat: yes
 
-- name: Wait couple sec
-  pause:
-    seconds: '15'
-  when: not kubelet_conf_file.stat.exists
 
-
-    

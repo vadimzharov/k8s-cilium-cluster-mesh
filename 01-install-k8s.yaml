@@ -1,0 +1,9 @@
+- hosts: k8s-cluster
+  gather_facts: no
+  environment:
+    LIBVIRT_DEFAULT_URI: "qemu:///system"
+  roles:
+    - k8s-vm
+    - k8s-setup
+
+    

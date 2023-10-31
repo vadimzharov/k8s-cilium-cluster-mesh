@@ -1,0 +1,19 @@
+- name: Ensure tmp directory exist
+  file:
+    path: "{{playbook_dir}}/files/tmp"
+
+- name: Set cilium_ca and cilium_ca_key variables content
+  set_fact:
+    cilium_ca: "{{ lookup('file', 'files/tmp/cilium-ca-certificate.pem') | b64encode }}" 
+    cilium_ca_key: "{{ lookup('file', 'files/tmp/cilium-ca-certificate.key') | b64encode }}" 
+
+- name: Enable Cilium helm repo
+  shell: helm repo add cilium https://helm.cilium.io/
+  delegate_to: localhost
+
+- name: Update Cilium helm repo
+  shell: helm repo update
+  delegate_to: localhost  
+
+- name: Update Cilium helm installation
+  include_tasks: k8s-cilium-update.yaml

@@ -1,6 +1,11 @@
 - name: Configure OS
   import_tasks: configure-os.yaml
 
+- name: Ensure tmp directory exist
+  file:
+    path: "{{playbook_dir}}/files/tmp"
+
 - name: Initialize the cluster
   import_tasks: k8s-init.yaml
+
 

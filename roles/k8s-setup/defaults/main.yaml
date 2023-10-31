@@ -1,0 +1,2 @@
+cilium_mesh_deploy: false
+install_cilium: true

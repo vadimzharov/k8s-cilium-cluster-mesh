@@ -1,0 +1,67 @@
+- name: Check if private key exists
+  stat:
+    path: files/tmp/cilium-ca-certificate.key
+  register: ca_key_stat
+  delegate_to: localhost 
+
+- name: Generate private key for Cilium
+  community.crypto.openssl_privatekey:
+    path: files/tmp/cilium-ca-certificate.key
+  delegate_to: localhost
+  when: not ca_key_stat.stat.exists
+
+- name: Check if CA file exists
+  stat:
+    path: files/tmp/cilium-ca-certificate.pem
+  register: ca_file_stat
+  delegate_to: localhost   
+
+- name: Create certificate signing request (CSR) for CA certificate
+  community.crypto.openssl_csr_pipe:
+    privatekey_path: files/tmp/cilium-ca-certificate.key
+    common_name: Cilium LAB CA
+    use_common_name_for_san: false  
+    basic_constraints:
+      - 'CA:TRUE'
+    basic_constraints_critical: true
+    key_usage:
+      - keyCertSign
+    key_usage_critical: true
+  register: ca_csr
+  delegate_to: localhost
+  when: not ca_file_stat.stat.exists
+
+- name: Create self-signed CA certificate from CSR
+  community.crypto.x509_certificate:
+    path: files/tmp/cilium-ca-certificate.pem
+    csr_content: "{{ ca_csr.csr }}"
+    privatekey_path: files/tmp/cilium-ca-certificate.key
+    provider: selfsigned
+  delegate_to: localhost
+  when: not ca_file_stat.stat.exists    
+
+- name: Set cilium_ca and cilium_ca_key variables content
+  set_fact:
+    cilium_ca: "{{ (lookup('file', 'files/tmp/cilium-ca-certificate.pem') + '\n') | b64encode }}" 
+    cilium_ca_key: "{{ (lookup('file', 'files/tmp/cilium-ca-certificate.key') + '\n') | b64encode }}" 
+
+- name: Enable Cilium helm repo
+  shell: helm repo add cilium https://helm.cilium.io/
+  delegate_to: localhost
+
+- name: Update Cilium helm repo
+  shell: helm repo update
+  delegate_to: localhost
+
+- name: Generate values file for cilium at /tmp/cilium-values.yaml
+  template:
+    src: files/cilium/values.yaml.j2
+    dest: "{{playbook_dir}}/files/tmp/cilium-values-{{ cluster_name }}.yaml"
+  delegate_to: localhost    
+
+- name: Install cilium
+  shell: "helm upgrade --install cilium cilium/cilium --version {{cilium_version}} --namespace kube-system --values {{playbook_dir}}/files/tmp/cilium-values-{{ cluster_name }}.yaml"
+  delegate_to: localhost
+  environment:
+    KUBECONFIG: "{{local_kubeconfig}}"
+  when: install_cilium
