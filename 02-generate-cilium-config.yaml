@@ -1,0 +1,16 @@
+- hosts: k8s-cluster
+  gather_facts: no
+  environment:
+    LIBVIRT_DEFAULT_URI: "qemu:///system"
+  tasks:
+    - name: Set localkubeconfig path
+      set_fact:
+        local_kubeconfig: "{{playbook_dir}}/kubeconfig-{{cluster_name}}"
+
+    - name: Generate Cilium values
+      include_role:
+        name: k8s-setup
+        tasks_from: k8s-cni-{{k8s_cni}}.yaml
+      vars:
+        install_cilium: false
+    

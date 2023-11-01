@@ -3,6 +3,15 @@
   debug: 
     msg: "Destroying VM {{ k8s_vm_name }}"
 
+- name: Ensure VM is not presented in /etc/hosts on localhost
+  lineinfile:
+    path: /etc/hosts
+    regexp: '{{ ansible_hostname }}'
+    state: absent
+  become: true
+  run_once: true
+  delegate_to: localhost 
+
 - name: "Stop and delete VM {{ k8s_vm_name }}"
   command: "virsh destroy {{k8s_vm_name}} "
   become: yes

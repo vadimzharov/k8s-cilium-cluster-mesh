@@ -1,28 +1,52 @@
-#CentOs image to download
-centos_image_url: https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-2009.qcow2
+
+k8s_vm_network: default
+
+#VM image to download
+vm_image_url: https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+#vm_image_path: "{{playbook_dir}}/jammy-server-cloudimg-amd64.img"
+vm_boot_config_file: "/boot/config-5.15.0-1044-kvm"
 
 #Path where to store VM images
 libvirt_vm_path: /var/lib/libvirt/images/
 
 # Name of the VM to create
-k8s_vm_name: "k8s-lab"
 k8s_vm_disk_size: "20G"
 
 # CRIO version
-crio_version: "1.20"
+#crio_version: "1.24"
+crio_version: "1.28"
 
-# Kubernetes POD network for Flannel
-pod_network_cidr: 10.244.0.0/16
+#k8s version to install
+k8s_version: "1.28.1-00"
+k8s_cni: cilium
+
+# Cilium version
+cilium_version: "1.14.2"
+cilium_default_domain: mylaptop.loc
+
+# part of path to base libcontainers repo. Repo for Ubuntu_21.04 exists.
+# https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_21.04/Release.key
+#ubuntu_os_version_libcontainers: xUbuntu_21.04
+ubuntu_os_version_libcontainers: xUbuntu_22.04
+
+# part of path to CRIO repository. Repo for Ubuntu 21.04 doesn't exist, use repo for Ubuntu 20.04.
+# https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/{{crio_version}}/xUbuntu_20.04/
+
+#ubuntu_os_version_crio: xUbuntu_20.04
+ubuntu_os_version_crio: xUbuntu_22.04
+
+# Disable kube proxy 
+use_kube_proxy: false      
 
 # kubeconfig file on k8s VM
-#kubeconfig_path: "/etc/kubernetes/admin.conf"
+kubeconfig_path: "/etc/kubernetes/admin.conf"
 
 # Local manifests to apply after cluster installed (files/manifests/<dir_name>):
-k8s_config_post_install_local_manifests:
-  - ingress-nginx
-  - tekton-pipelines
+#k8s_config_post_install_local_manifests: []
+#  - ingress-nginx
+#  - tekton-pipelines
 
 # Remote manifests to apply after cluster installed:
-k8s_config_post_install_remote_manifests:
-  - namespace: k8s-lab-example-app
-    url: https://k8s.io/examples/application/deployment.yaml
+#k8s_config_post_install_remote_manifests:
+#  - namespace: k8s-lab-example-app
+#    url: https://k8s.io/examples/application/deployment.yaml

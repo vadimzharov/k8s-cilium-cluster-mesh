@@ -1,0 +1,4 @@
+- name: Validating if can connect to k8s cluster using provided kubeconfig file
+  shell: kubectl get nodes
+  environment: 
+    KUBECONFIG: "{{ playbook_dir }}/kubeconfig-{{ cluster_name }}"

@@ -20,7 +20,7 @@
   delegate_to: localhost
   register: virsh_domifaddr
   until: '"ipv4" in virsh_domifaddr.stdout'
-  retries: 10
+  retries: 100
   delay: 10
 
 - name: Set raw IP address
@@ -37,6 +37,17 @@
     ansible_ssh_host: '{{ k8s_vm_ip }}'
     ansible_default_ipv4: '{{ k8s_vm_ip }}'
     groups: k8s-cluster
+
+- name: Ensure old host is not in /etc/hosts on localhost
+  lineinfile:
+    path: /etc/hosts
+    regexp: '{{ ansible_hostname }}'
+#    line: '{{ ansible_hostname }}'
+    state: absent
+    backup: true    
+  become: true
+  run_once: true
+  delegate_to: localhost    
 
 - name: Add host to /etc/hosts on localhost
   lineinfile:

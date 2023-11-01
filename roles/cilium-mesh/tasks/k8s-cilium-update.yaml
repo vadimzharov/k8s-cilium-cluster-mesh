@@ -1,0 +1,12 @@
+- name: Generate values file for cilium at /tmp/cilium-values.yaml
+  template:
+    src: files/cilium/values.yaml.j2
+    dest: "files/tmp/cilium-values-{{ cluster_name }}-mesh.yaml"
+  delegate_to: localhost    
+
+- name: Install cilium
+  shell: "helm upgrade cilium cilium/cilium --version {{cilium_version}} --namespace kube-system --values files/tmp/cilium-values-{{ cluster_name }}-mesh.yaml"
+  delegate_to: localhost
+  environment:
+    KUBECONFIG: "{{local_kubeconfig}}"
+  when: install_cilium    

@@ -1,0 +1,63 @@
+debug:
+  enabled: true
+bgp:
+  enabled: false
+operator:
+  replicas: 1
+bpf:
+  masquerade: true
+tls:
+  ca:
+    cert: {{ cilium_ca }}
+    key: {{ cilium_ca_key }}
+{% if cilium_mesh_deploy |bool %}    
+cluster:
+  id: {{ cilium_mesh_cluster_id }}
+  name: {{ cluster_name }}
+clustermesh:
+  apiserver:
+    service:
+      type: NodePort
+      nodePort: {{ cilium_apiserver_port }}
+    tls:
+      authMode: cluster
+      server:
+        extraDnsNames:
+          - "*.{{ cilium_default_domain }}"
+  config:
+    enabled: true
+    domain: {{ cilium_default_domain }}
+    clusters:
+      - name: {{ cilium_peer_cluster_name }}
+        address: {{ cilium_peer_cluster_address }}
+        port: {{ cilium_peer_apiserver_port }}
+  useAPIServer: true
+{% endif %}
+ipv4:
+  enabled: true
+nodePort:
+  enabled: true
+egressGateway:
+  enabled: false 
+l7Proxy: false  
+kubeProxyReplacement: strict
+k8sServiceHost: {{ k8s_hostname }}
+k8sServicePort: 6443
+ipam:
+  mode: "cluster-pool"
+  operator:
+    clusterPoolIPv4PodCIDRList: 
+      - "{{pod_network_cidr}}"
+    clusterPoolIPv4MaskSize: 24  
+ipv4NativeRoutingCIDR:     
+hubble:
+  relay: 
+    enabled: true
+  ui:
+    enabled: true
+  tls:
+    auto:
+      enabled: true 
+      method: helm  
+      certValidityDuration: 1095
+      

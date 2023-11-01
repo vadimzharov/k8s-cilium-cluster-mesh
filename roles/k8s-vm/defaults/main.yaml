@@ -2,3 +2,4 @@ k8s_vm_path: "{{ libvirt_vm_path }}/{{ k8s_vm_name }}.qcow2"
 k8s_vm_memory: 4096
 k8s_vm_cpu: 2
 k8s_vm_reprovision: false
+k8s_vm_network: "default"

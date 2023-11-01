@@ -1,7 +1,0 @@
-k8s-cluster:
-  hosts:
-    k8s-lab:
-      ansible_hostname: k8s-lab.mypc.loc
-      ansible_ssh_user: root
-      ansible_become: yes
-      

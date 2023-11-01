@@ -1,1 +1,4 @@
-kubeconfig
+kubeconfig*
+*.img
+files/tmp/*
+!files/tmp/dummy

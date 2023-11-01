@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: shared-service
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ingress.mylaptop.loc
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shared-service
+                port:
+                  number: 80

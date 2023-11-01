@@ -1,0 +1,3 @@
+cilium_mesh_deploy: true
+local_kubeconfig: "{{playbook_dir}}/kubeconfig-{{cluster_name}}"
+install_cilium: true

@@ -1,16 +1,16 @@
-- name: Upgrade all packages
-  yum:
-    name: '*'
-    state: latest
+# - name: Upgrade all packages
+#   yum:
+#     name: '*'
+#     state: latest
 
-- name: Set selinux to permissive
-  command: setenforce permissive
+# - name: Set selinux to permissive
+#   command: setenforce permissive
 
-- name: Disable selinux
-  lineinfile:
-    path: /etc/selinux/config
-    regexp: '^SELINUX='
-    line: 'SELINUX=permissive'
+# - name: Disable selinux
+#   lineinfile:
+#     path: /etc/selinux/config
+#     regexp: '^SELINUX='
+#     line: 'SELINUX=permissive'
 
 - name: Check if can grow partition
   command: growpart -N /dev/vda 1
@@ -22,11 +22,76 @@
   when: "'NOCHANGE' not in growpart_cmd.stdout"
 
 - name: Extend partition
-  command: "xfs_growfs /"
+  command: "resize2fs /dev/vda1"
+
+- name: Set flag to disable reboot
+  set_fact:
+    os_reboot_required: false
+
+- name: Disable cloud-init
+  systemd:
+    state: stopped
+    name: cloud-init
+    enabled: no
+
+- name: Remove cloud-init package
+  apt:
+    name: cloud-init
+    state: absent
+
+- name: Disable auto update
+  apt:
+    name: unattended-upgrades
+    state: absent    
 
 - name: Set hostname
   hostname:
     name: "{{ansible_hostname}}"
+
+- name: Add host to /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    regexp: '/{{ k8s_hostname }}/'
+    line: '{{ k8s_vm_ip }} {{ k8s_hostname }}'
+
+- name: Disable default rp_filter sysctl params
+  lineinfile:
+    path: /etc/sysctl.d/99-sysctl.conf
+    search_string: "{{ item }}"
+    state: absent
+  loop:
+    - "net.ipv4.conf.default.rp_filter"
+    - "net.ipv4.conf.all.rp_filter"
+
+- name: Disable default rp_filter sysctl params
+  lineinfile:
+    path: /etc/sysctl.d/10-network-security.conf
+    search_string: "{{ item }}"
+    state: absent
+  loop:
+    - "net.ipv4.conf.default.rp_filter"
+    - "net.ipv4.conf.all.rp_filter"
+
+- name: Enable required sysctl params
+  copy:
+    dest: /etc/sysctl.d/20-k8s.conf
+    content: |
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.ipv4.ip_forward = 1
+      net.ipv4.ip_forward = 1
+
+- name: Enable required sysctl params
+  copy:
+    dest: /etc/sysctl.d/90-override.conf
+    content: |
+      net.ipv4.conf.default.rp_filter = 0
+      net.ipv4.conf.*.rp_filter = 0
+
+- name: Reboot the OS
+  reboot: 
+    reboot_timeout: 600
+  when: os_reboot_required
 
 - name: Enable the br_netfilter module
   copy:
@@ -42,15 +107,6 @@
   command: "modprobe overlay"
 
 - name: Enable required sysctl params
-  copy:
-    dest: /etc/sysctl.d/01-k8s.conf
-    content: |
-      net.bridge.bridge-nf-call-ip6tables = 1
-      net.bridge.bridge-nf-call-iptables = 1
-      net.ipv4.ip_forward = 1
-      net.ipv4.ip_forward = 1
-
-- name: Enable required sysctl params
   command: "sysctl -w {{ item }}=1"
   loop: "{{ sysctl_params }}"
   vars:
@@ -60,23 +116,54 @@
       - net.ipv4.ip_forward
       - net.ipv4.ip_forward
 
+- name: Disable default sysctl params
+  command: "sysctl -w {{ item }}=0"
+  loop:
+    - "net.ipv4.conf.default.rp_filter"
+    - "net.ipv4.conf.all.rp_filter"
 
-- name: Enable CRIO repo 1
-  get_url:
-    url: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/CentOS_7/devel:kubic:libcontainers:stable.repo
-    dest: /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo
-    mode: '0440'
+- name: CRI-O repo
+  apt_key: 
+    url: "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:{{ crio_version }}/{{ ubuntu_os_version_crio }}/Release.key"
+    state: present
 
-- name: Enable CRIO repo 2
-  get_url:
-    url: "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:{{crio_version}}/CentOS_7/devel:kubic:libcontainers:stable:cri-o:{{crio_version}}.repo"
-    dest: "/etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:{{crio_version}}.repo"
-    mode: '0440'
+- name: Add CRI-O repository 
+  apt_repository:
+    repo: "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/{{ crio_version }}/{{ ubuntu_os_version_crio }}/ /"
+    state: present
+    filename: crio-{{crio_version | replace('.','-') | replace('/','-') | replace(':','-')}}      
+
+- name: Add basic-containers repo
+  apt_key: 
+    url: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/{{ ubuntu_os_version_libcontainers }}/Release.key"
+    state: present
+
+- name: Add CRI-O required repositories
+  apt_repository:
+    repo: "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/{{ ubuntu_os_version_libcontainers }}/ /"
+    state: present
+    filename: basic-containers
+
+- name: Add k8s repo
+  apt_key: 
+    url: "https://packages.cloud.google.com/apt/doc/apt-key.gpg"
+    state: present
+
+- name: Add CRI-O required repositories
+  apt_repository:
+    repo: "deb https://apt.kubernetes.io/ kubernetes-xenial main"
+    state: present
+    filename: k8s-repo
 
 - name: Install CRI-O
-  yum:
-    name: cri-o
+  apt:
+    name: "{{ crio_packages }}"
     state: present
+    update_cache: yes
+  vars:
+    crio_packages:
+      - cri-o-runc
+      - cri-o
 
 - name: Remove CRI-O bridge configuration
   file:
@@ -88,33 +175,33 @@
     - "/etc/cni/net.d/100-crio-bridge.conf"
     - "/etc/cni/net.d/200-loopback.conf"
 
-- name: Start and enable CRI-O
+- name: Start CRI-O
   systemd:
     daemon-reload: yes
     state: started
-    name: cri-o
+    name: crio
+
+- name: Enable CRI-O
+  systemd:
+    state: started
+    name: crio
     enabled: yes
 
-- name: Enable Kubernetes repo
-  copy:
-    dest: /etc/yum.repos.d/k8s.repo
-    content: |
-      [kubernetes]
-      name=Kubernetes
-      baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
-      enabled=1
-      gpgcheck=1
-      repo_gpgcheck=1
-      gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-      exclude=kubelet kubeadm kubectl
+- name: Define k8s packages list
+  set_fact:
+    k8s_packages:
+      - "kubectl"
+      - "kubelet"
+      - "kubeadm"
 
 - name: Install k8s packages
-  yum:
-     name: "{{ packages }}"
-     disable_excludes: kubernetes
-  vars:
-     packages:
-     - kubelet
-     - kubeadm
-     - kubectl
+  apt:
+    name: "{{ item }}={{k8s_version}}"
+    state: present
+  loop: "{{ k8s_packages }}"
 
+- name: Prevent k8s packages from being upgraded
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: "{{ k8s_packages }}"

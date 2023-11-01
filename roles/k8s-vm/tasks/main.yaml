@@ -1,4 +1,7 @@
 
+- debug:
+    msg: "{{cilium_mesh_deploy|bool}}"
+
 - name: Delete VM if required
   import_tasks: delete-vm.yaml
   when: k8s_vm_reprovision | bool 
@@ -24,18 +27,4 @@
 
 - name: Add VM to inventory
   import_tasks: add-vm-inventory.yaml
-
-# - name: Stop VM
-#   shell: virsh destroy k8s
-#   delegate_to: localhost
-#   ignore_errors: true
-
-
-# - name: Revert VM from snapshot
-#   shell: "virsh snapshot-revert {{vm_name}} {{snapshot_name}}"
-#   delegate_to: localhost
-
-# - name: Start VM
-#   shell: virsh start k8s
-#   delegate_to: localhost
 
