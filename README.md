@@ -191,7 +191,7 @@ and for the second:
 ansible-playbook 05-configure-cilium-mesh.yaml -i inventory/k8s-02.yaml
 ```
 
-After you update Cilium configuration with new values file or playbooks finished, restart all cilium pods on both clusters so they pick a new configuration with a new certificates:
+After you update Cilium configuration with new values file or playbooks finished, restart all cilium pods on both clusters so they pick a new configuration with a new certificates (secret `cilium-clustermesh` is now mounted to all cilium agent pods):
 ```
 KUBECONFIG=kubeconfig-k8s01 kubectl -n kube-system delete pods -l app.kubernetes.io/name=cilium-agent
 pod "cilium-2phq5" deleted
@@ -203,7 +203,7 @@ pod "cilium-b5kcf" deleted
 
 After `helm upgrade` / ansible playbooks completed, both clusters should have Cilium Cluster Mesh configured. Let's see what changed.
 
-First, clusters now have clustermesh-apiserver pod running and exposed as NodePort service:
+Now clusters have clustermesh-apiserver pod running and exposed as NodePort service:
 
 Pods on both clusters:
 ```
@@ -227,7 +227,7 @@ clustermesh-apiserver           NodePort    10.97.21.70   <none>        2379:323
 clustermesh-apiserver-metrics   ClusterIP   None          <none>        9962/TCP,9964/TCP   6m17s   k8s-app=clustermesh-apiserver
 ```
 
-There are clustermesh secrets:
+There are clustermesh secrets generated:
 ```
 [vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl -n kube-system get secrets | grep clustermesh
 cilium-clustermesh                  Opaque                          1      20m
@@ -526,7 +526,7 @@ I1031 18:58:42.022771       7 event.go:285] Event(v1.ObjectReference{Kind:"Ingre
 
 The IP you see in the logs - 10.96.7.69 - is the IP of `shared-service` service, and not nginx application pod. So now, if deployment on the first K8S cluster is scaled to 0, the traffic goes to the second K8S cluster:
 ```
-vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl -n shared-service scale deployment/nginx-deployment --replicas=0
+[vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl -n shared-service scale deployment/nginx-deployment --replicas=0
 deployment.apps/nginx-deployment scaled
 [vadim@fedora k8s-kvm-lab]$ KUBECONFIG=kubeconfig-k8s01 kubectl -n shared-service get pods
 No resources found in shared-service namespace.
@@ -536,4 +536,4 @@ HTTP/1.1 200 OK
 
 ### Conclusion
 
-Cilium Cluster Mesh allows you to route your pod-to-pod and service-to-service traffic between multiple Kubernetes clusters (if your clusters and infrastructure meet requirements). The way how it is working and configuring is pretty easy and straightforward - because basically it is L3 routing between POD/SERVICEs CIDRs, and in some cases can be great option if you want to share some resources across some/all your Kubernetes clusters.
+Cilium Cluster Mesh allows you to route your pod-to-pod and service-to-service traffic between multiple Kubernetes clusters (if your clusters and infrastructure meet requirements). The way how it is working and configuring is pretty easy and straightforward - because basically it is L3 routing between POD/SERVICEs CIDRs, and in some cases can be great option if you want to share resources/applications across some/all your Kubernetes clusters.
