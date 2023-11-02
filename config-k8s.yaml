@@ -1,6 +1,0 @@
-- hosts: k8s-cluster
-  gather_facts: no
-  roles:
-    - k8s-config
-
-    
