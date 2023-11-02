@@ -1,8 +1,0 @@
-- hosts: k8s-cluster
-  gather_facts: no
-  vars:
-    install_cilium: false
-  roles:
-    - cilium-mesh
-
-    
